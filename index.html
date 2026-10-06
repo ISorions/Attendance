@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Time Punch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root{
+  --bg:#f2f5f7;--surface:#fff;--ink:#1b2430;--muted:#5d6b7a;--line:#d5dce3;
+  --present:#1f7a5a;--absent:#b3372f;--late:#a8680f;--accent:#24456b;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12181f;--surface:#1b232c;--ink:#e8edf2;--muted:#9aa8b6;--line:#2e3a46;
+  --present:#4cc29a;--absent:#f0746b;--late:#e4a64a;--accent:#8db4e2;}}
+:root[data-theme="dark"]{--bg:#12181f;--surface:#1b232c;--ink:#e8edf2;--muted:#9aa8b6;--line:#2e3a46;
+  --present:#4cc29a;--absent:#f0746b;--late:#e4a64a;--accent:#8db4e2;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.9rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:.95rem}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:16px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input[type=text],input[type=date]{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+input[type=text]{min-width:200px;flex:1}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 14px;border-radius:6px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+:root[data-theme="dark"] button.primary,:root:not([data-theme="light"]) button.primary{color:#0d1620}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tally{display:flex;gap:18px;flex-wrap:wrap;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:12px}
+.tally b{font-size:1.3rem}
+.tally .p b{color:var(--present)}.tally .a b{color:var(--absent)}.tally .l b{color:var(--late)}
+.rows{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.name{font-weight:700}
+.tot{color:var(--muted);font-size:.82rem}
+.x{padding:6px 9px;color:var(--muted)}
+
+.pbtn{font-weight:700;min-width:104px}
+.pbtn.in{background:var(--present);border-color:var(--present);color:#fff}
+.pbtn.out{background:var(--absent);border-color:var(--absent);color:#fff}
+.pbtn:disabled{opacity:.45;cursor:not-allowed}
+:root[data-theme="dark"] .pbtn.in,:root[data-theme="dark"] .pbtn.out,:root:not([data-theme="light"]) .pbtn.in,:root:not([data-theme="light"]) .pbtn.out{color:#0d1620}
+.plist{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.88rem}
+.pitem{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 10px}
+.pitem .x{padding:0 7px;border:0;background:none}
+.empty{padding:28px 14px;color:var(--muted);text-align:center}
+.foot{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+#msg{color:var(--absent);font-size:.9rem;margin-top:10px;min-height:1.2em}
+#mode{font-size:.85rem;color:var(--muted)}
+button.armed{background:var(--absent);border-color:var(--absent);color:#fff}
+:root[data-theme="dark"] button.armed,:root:not([data-theme="light"]) button.armed{color:#0d1620}
+h2{font-size:1.25rem;margin:32px 0 4px}
+.logtools{display:flex;justify-content:flex-end;margin:6px 0}
+.logwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+#log{width:100%;border-collapse:collapse;font-size:.92rem}
+#log th,#log td{text-align:left;padding:9px 14px;border-top:1px solid var(--line);white-space:nowrap}
+#log tr:first-child th{border-top:0;color:var(--muted);font-weight:400;font-size:.85rem}
+#log tr.live td{color:var(--present);font-weight:700}
+#log td.empty{text-align:center;color:var(--muted);font-weight:400}
+@media (max-width:560px){.row{grid-template-columns:1fr auto}.row .pbtn{grid-column:1/3}.row .x{grid-column:2;grid-row:1}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Time punch</h1>
+  <p class="sub">Made By Darren Aka ISorions<span id="mode" hidden></span></p>
+
+  <div class="bar">
+    <label>Day <input type="date" id="day"></label>
+    <label style="flex:1">New person <input type="text" id="newName" placeholder="Full name" maxlength="60"></label>
+    <button class="primary" id="add">Add person</button>
+  </div>
+
+  <div class="tally" id="tally"></div>
+  <div class="rows" id="rows"></div>
+  <div id="msg" role="status"></div>
+
+  <h2>Time log</h2>
+  <p class="sub">Every punch, newest first. Updates live as people punch in and out.</p>
+  <div id="msg2" role="status" style="color:var(--absent);font-size:.9rem;min-height:1.2em"></div>
+  <div class="logtools"><button id="clearLog">Clear entire log</button></div>
+  <div class="logwrap"><table id="log"></table></div>
+</main>
+
+<script>
+(function(){
+    var people={}, punches={};   // punches[id]={pid,date,inAt,outAt}
+  var db=null, canWrite=true;
+
+  var $=function(id){return document.getElementById(id)};
+  function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+  $("day").value=today();
+  function say(t){$("msg").textContent=t||"";$("msg2").textContent=t||""}
+  // Two-tap confirm: pop-up dialogs are blocked on published pages, so the button asks inline instead.
+  function armTap(btn,armedText,fn){
+    var orig=btn.textContent,timer=null,armed=false;
+    function reset(){armed=false;btn.textContent=orig;btn.classList.remove("armed")}
+    btn.addEventListener("click",function(){
+      if(db&&!canWrite){say("You can view this list but not change it.");return}
+      if(!armed){armed=true;btn.textContent=armedText;btn.classList.add("armed");timer=setTimeout(reset,4000);return}
+      clearTimeout(timer);reset();fn();
+    });
+  }
+
+  /* ---------- storage layer ---------- */
+  var LS="attendance-v1";
+  function lsLoad(){try{var o=JSON.parse(localStorage.getItem(LS)||"{}");people=o.people||{};punches=o.punches||{}}catch(e){}}
+  function lsSave(){try{localStorage.setItem(LS,JSON.stringify({people:people,punches:punches}))}catch(e){}}
+  function newId(){return "p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+
+  function writeErr(e){
+    if(e&&e.code==="invalid_argument"){canWrite=false;say("You can view this list but not change it.")}
+    else if(e&&e.code==="quota_exceeded"){say("The database is full. Delete old punches to free space.")}
+    else say("Could not save that. Try again.");
+  }
+
+  function addPerson(name){
+    var id=newId();
+    if(db){return db.collection("people").doc(id).set({name:name,createdAt:Date.now()}).catch(writeErr)}
+    people[id]={name:name};lsSave();render();return Promise.resolve();
+  }
+  function removePerson(pid){
+    var pks=Object.keys(punches).filter(function(k){return punches[k].pid===pid});
+    if(db){
+      var chain=db.collection("people").doc(pid).delete();
+      pks.forEach(function(k){chain=chain.then(function(){return db.collection("punches").doc(k).delete()})});
+      return chain.catch(writeErr);
+    }
+    delete people[pid];pks.forEach(function(k){delete punches[k]});lsSave();render();return Promise.resolve();
+  }
+  function openPunch(pid,day){
+    return Object.keys(punches).filter(function(k){var p=punches[k];return p.pid===pid&&p.date===day&&!p.outAt})[0];
+  }
+  function punchIn(pid){
+    var day=today(), id=newId(), rec={pid:pid,date:day,inAt:Date.now(),outAt:null};
+    if(openPunch(pid,day))return;
+    if(db){db.collection("punches").doc(id).set(rec).catch(writeErr);return}
+    punches[id]=rec;lsSave();render();
+  }
+  function punchOut(pid){
+    var id=openPunch(pid,today());if(!id)return;
+    if(db)return db.collection("punches").doc(id).update({outAt:Date.now()}).catch(writeErr);
+    punches[id].outAt=Date.now();lsSave();render();
+  }
+  function removePunch(id){
+    if(db)return db.collection("punches").doc(id).delete().catch(writeErr);
+    delete punches[id];lsSave();render();
+  }
+  function clearAllPunches(){
+    var keys=Object.keys(punches);if(!keys.length)return;
+    if(db){
+      var chain=Promise.resolve();
+      keys.forEach(function(k){chain=chain.then(function(){return db.collection("punches").doc(k).delete()})});
+      return chain.catch(writeErr);
+    }
+    punches={};lsSave();render();
+  }
+  function fmtTime(ms){return new Date(ms).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}
+  function fmtHours(ms){var m=Math.round(ms/60000);return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m"}
+  /* ---------- render ---------- */
+  function sortedPeople(){
+    return Object.keys(people).sort(function(a,b){return people[a].name.localeCompare(people[b].name)});
+  }
+  function renderLog(){
+    var t=$("log");t.textContent="";
+    var keys=Object.keys(punches).filter(function(k){return people[punches[k].pid]})
+      .sort(function(a,b){return punches[b].inAt-punches[a].inAt});
+    var head=document.createElement("tr");
+    ["Date","Name","In","Out","Hours",""].forEach(function(h){var th=document.createElement("th");th.textContent=h;head.appendChild(th)});
+    t.appendChild(head);
+    if(!keys.length){
+      var tr=document.createElement("tr"),td=document.createElement("td");
+      td.colSpan=6;td.className="empty";td.textContent="No punches yet.";tr.appendChild(td);t.appendChild(tr);return;
+    }
+    keys.forEach(function(k){
+      var p=punches[k],tr=document.createElement("tr");
+      if(!p.outAt)tr.className="live";
+      var cells=[p.date,people[p.pid].name,fmtTime(p.inAt),p.outAt?fmtTime(p.outAt):"Clocked in",
+        fmtHours((p.outAt||Date.now())-p.inAt)+(p.outAt?"":" so far")];
+      cells.forEach(function(c){var td=document.createElement("td");td.textContent=c;tr.appendChild(td)});
+      var dtd=document.createElement("td"),del=document.createElement("button");
+      del.className="x";del.textContent="Delete";
+      del.setAttribute("aria-label","Delete "+people[p.pid].name+" punch on "+p.date);
+      armTap(del,"Tap again to delete",function(){removePunch(k)});
+      dtd.appendChild(del);tr.appendChild(dtd);
+      t.appendChild(tr);
+    });
+  }
+  function render(){
+    renderLog();
+    var day=$("day").value||today();
+    var ids=sortedPeople(), clockedIn=0, punched=0;
+    var rows=$("rows");rows.textContent="";
+    if(!ids.length){
+      var e=document.createElement("div");e.className="empty";
+      e.textContent="No names yet. Type a name above and press Add person.";rows.appendChild(e);
+    }
+    ids.forEach(function(pid){
+      var mine=Object.keys(punches).filter(function(k){return punches[k].pid===pid&&punches[k].date===day})
+        .sort(function(a,b){return punches[a].inAt-punches[b].inAt});
+      var open=openPunch(pid,day), ms=0;
+      if(mine.length)punched++;
+      if(open)clockedIn++;
+      mine.forEach(function(k){var p=punches[k];if(p.outAt)ms+=p.outAt-p.inAt});
+
+      var row=document.createElement("div");row.className="row";
+      var left=document.createElement("div");
+      var nm=document.createElement("div");nm.className="name";nm.textContent=people[pid].name;
+      var tot=document.createElement("div");tot.className="tot";
+      tot.textContent=mine.length?("Total "+fmtHours(ms)+(open?" so far, still clocked in":"")):"No punches this day";
+      left.appendChild(nm);left.appendChild(tot);
+
+      var isToday=(day===today());
+      var pb=document.createElement("button");
+      pb.className="pbtn "+(open?"out":"in");
+      pb.textContent=open?"Punch out":"Punch in";
+      pb.disabled=!isToday;
+      if(!isToday)pb.title="Punching works on today's date only";
+      pb.addEventListener("click",function(){
+        if(db&&!canWrite)return say("You can view this list but not change it.");
+        open?punchOut(pid):punchIn(pid);
+      });
+
+      var x=document.createElement("button");x.className="x";x.textContent="Remove";
+      x.setAttribute("aria-label","Remove "+people[pid].name);
+      armTap(x,"Tap again to remove",function(){removePerson(pid)});
+      row.appendChild(left);row.appendChild(pb);row.appendChild(x);
+
+      if(mine.length){
+        var list=document.createElement("div");list.className="plist";
+        mine.forEach(function(k){
+          var p=punches[k];
+          var it=document.createElement("span");it.className="pitem";
+          it.textContent=fmtTime(p.inAt)+" to "+(p.outAt?fmtTime(p.outAt):"now");
+          var rm=document.createElement("button");rm.className="x";rm.textContent="x";
+          rm.setAttribute("aria-label","Delete punch "+it.textContent);
+          armTap(rm,"Delete?",function(){removePunch(k)});
+          it.appendChild(rm);list.appendChild(it);
+        });
+        row.appendChild(list);
+      }
+      rows.appendChild(row);
+    });
+    $("tally").innerHTML=
+      '<span class="p"><b>'+clockedIn+'</b> clocked in now</span>'+
+      '<span><b>'+punched+'</b> punched this day</span>'+
+      '<span><b>'+ids.length+'</b> people</span>';
+  }
+
+    /* ---------- events ---------- */
+  function doAdd(){
+    var n=$("newName").value.trim();
+    if(!n)return say("Type a name first.");
+    if(db&&!canWrite)return say("You can view this list but not change it.");
+    say("");$("newName").value="";addPerson(n);$("newName").focus();
+  }
+  $("add").addEventListener("click",doAdd);
+  $("newName").addEventListener("keydown",function(e){if(e.key==="Enter")doAdd()});
+  $("day").addEventListener("change",render);
+  armTap($("clearLog"),"Tap again to delete everything",clearAllPunches);
+  setInterval(function(){if(!document.querySelector(".armed"))renderLog()},30000);
+
+  /* ---------- start ---------- */
+  lsLoad();render();$("mode").textContent="Saving in this browser only.";
+
+  (async function(){
+    try{
+      var d=await claude.use("db");
+      if(!d)return;
+      db=d;
+      people={};punches={};
+      $("mode").textContent="Shared: everyone with the link sees the same list.";
+      try{var u=await claude.use("user");if(u&&u.can){var w=u.can("data.write");if(w===false)canWrite=false}}catch(e){}
+      db.collection("people").onSnapshot(function(s){
+        people={};s.docs.forEach(function(doc){var v=doc.data();if(v&&v.name)people[doc.id]={name:v.name}});render();
+      },function(){say("Lost connection to the database. Reload the page.")});
+      db.collection("punches").onSnapshot(function(s){
+        punches={};s.docs.forEach(function(doc){var v=doc.data();if(v&&v.inAt)punches[doc.id]=v});render();
+      },function(){say("Lost connection to the database. Reload the page.")});
+    }catch(e){/* stay in browser-only mode */}
+  })();
+})();
+</script>
+</body>
+</html>
